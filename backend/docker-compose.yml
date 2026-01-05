@@ -13,6 +13,7 @@ services:
     environment:
       TZ: Asia/Seoul
       OTEL_SERVICE_NAME: feed-zupzup
+      OTEL_RESOURCE_ATTRIBUTES: service.name=feed-zupzup,deployment.environment=local
       OTEL_EXPORTER_OTLP_ENDPOINT: http://alloy:4318
       OTEL_TRACES_EXPORTER: otlp
       OTEL_METRICS_EXPORTER: none
