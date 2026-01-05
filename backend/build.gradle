@@ -97,38 +97,6 @@ dependencies {
     implementation 'org.apache.httpcomponents.client5:httpclient5'
 }
 
-tasks.register('copySecret', Copy) {
-    mustRunAfter copySecretAlloy
-    from file('./backend-submodule/main')
-    include 'application*.yml'
-    into 'src/main/resources'
-}
-
-tasks.register('copySecretTest', Copy) {
-    mustRunAfter copySecretAlloy
-    from file('./backend-submodule/test')
-    include 'application*.yml'
-    into 'src/test/resources'
-}
-
-tasks.register('copySecretAlloy', Copy) {
-    from file('./backend-submodule/alloy')
-    include 'config.alloy'
-    into '.'
-}
-
-tasks.register('copyFirebaseServiceKey', Copy) {
-    mustRunAfter copySecretAlloy
-    from file('./backend-submodule/firebase')
-    include 'service_account_key.json'
-    into 'src/main/resources/firebase'
-}
-
-compileJava.dependsOn copySecret, copySecretTest, copySecretAlloy, copyFirebaseServiceKey
-processResources.dependsOn copySecret, copySecretAlloy, copyFirebaseServiceKey
-processTestResources.dependsOn copySecretTest
-
 test {
     useJUnitPlatform()
-    dependsOn copySecretTest, copyFirebaseServiceKey
 }

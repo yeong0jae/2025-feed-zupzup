@@ -1,14 +1,38 @@
 <configuration>
-  <property name="CONSOLE_LOG_PATTERN"
-    value="[%d{yyyy-MM-dd HH:mm:ss,Asia/Seoul}] %magenta([local]) %green([%thread]) %highlight(%-5level) %boldWhite([%C.%M:%yellow(%L)]) %yellow([trace_id=%X{trace_id}] [span_id=%X{span_id}] [global_trace_id=%X{global_trace_id}]) - %msg%n"/>
+  <property name="LOGS_ROOT_PATH" value="/var/log/spring"/>
 
-  <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-    <encoder>
-      <pattern>${CONSOLE_LOG_PATTERN}</pattern>
+  <appender name="APP_LOG_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${LOGS_ROOT_PATH}/app.log</file>
+
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+      <fileNamePattern>${LOGS_ROOT_PATH}/%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+      <maxFileSize>10MB</maxFileSize>
+      <maxHistory>7</maxHistory>
+    </rollingPolicy>
+
+    <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+      <providers>
+        <timestamp>
+          <timeZone>Asia/Seoul</timeZone>
+        </timestamp>
+        <logLevel>
+          <fieldName>level</fieldName>
+        </logLevel>
+        <loggerName>
+          <fieldName>logger</fieldName>
+        </loggerName>
+        <threadName>
+          <fieldName>thread</fieldName>
+        </threadName>
+        <mdc/>
+        <message/>
+        <arguments/>
+        <stackTrace/>
+      </providers>
     </encoder>
   </appender>
 
   <root level="info">
-    <appender-ref ref="CONSOLE"/>
+    <appender-ref ref="APP_LOG_FILE"/>
   </root>
 </configuration>

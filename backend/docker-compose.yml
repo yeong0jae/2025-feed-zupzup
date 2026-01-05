@@ -1,11 +1,114 @@
 services:
+  feed-zupzup-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SPRING_ACTIVE_PROFILE: local
+    container_name: feed-zupzup-server
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./volumes/springboot/logs:/var/log/spring
+    environment:
+      TZ: Asia/Seoul
+      OTEL_SERVICE_NAME: feed-zupzup
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://alloy:4318
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: none
+      OTEL_LOGS_EXPORTER: none
+      OTEL_JAVAAGENT_DISABLED_INSTRUMENTATIONS: micrometer
+      OTEL_INSTRUMENTATION_HTTP_SERVER_EXCLUDE_URLS: /actuator/.*
+    depends_on:
+      feed-zupzup-db:
+        condition: service_healthy
+
   feed-zupzup-db:
     image: mysql:8.4
     container_name: feed-zupzup-db
     environment:
-      MYSQL_ROOT_PASSWORD: 12341234
       MYSQL_DATABASE: feed-zupzup
+      MYSQL_ROOT_PASSWORD: 1234
     volumes:
-      - ./mysql/data:/var/lib/mysql
+      - ./volumes/mysql/data:/var/lib/mysql
     ports:
       - "33061:3306"
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping" ]
+      interval: 3s
+      retries: 10
+
+  alloy:
+    image: grafana/alloy:latest
+    container_name: alloy
+    environment:
+      ALLOY_ENV: local
+      SERVER_NAME: localhost
+    ports:
+      - "12345:12345"
+      - "4318:4318"
+    volumes:
+      - ./volumes/springboot/logs:/var/log/spring
+      - ./volumes/alloy/config.alloy:/etc/alloy/config.alloy
+
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./volumes/loki/data:/loki
+      - ./volumes/loki/loki-config.yaml:/etc/loki/local-config.yaml
+    environment:
+      TZ: "Asia/Seoul"
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: unless-stopped
+    user: "0:0"
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./volumes/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./volumes/prometheus/data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+      - '--web.enable-remote-write-receiver'  # Remote Write 수신 활성화
+      - '--storage.tsdb.retention.time=30d'   # 30일 보관
+      - '--storage.tsdb.wal-compression'      # 압축 저장
+
+  tempo:
+    image: grafana/tempo:latest
+    container_name: tempo
+    ports:
+      - "3200:3200"
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    volumes:
+      - ./volumes/tempo/tempo.yaml:/etc/tempo.yaml
+      - ./volumes/tempo/data:/var/tempo
+    environment:
+      TZ: "Asia/Seoul"
+
+  grafana:
+    image: grafana/grafana-oss:latest
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./volumes/grafana:/var/lib/grafana
+      - ./volumes/grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      TZ: "Asia/Seoul"
+      GF_SERVER_ROOT_URL: "http://localhost:3000/grafana"
+      GF_SECURITY_ADMIN_PASSWORD: "1234"
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ENABLE_GZIP: "true"
+    depends_on:
+      - loki
+      - prometheus
