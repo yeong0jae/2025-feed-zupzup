@@ -1,4 +1,4 @@
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:21-jdk
 
 ARG SPRING_ACTIVE_PROFILE
 ENV PROFILE=${SPRING_ACTIVE_PROFILE}
