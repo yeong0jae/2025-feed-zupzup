@@ -32,6 +32,7 @@ services:
       MYSQL_ROOT_PASSWORD: 1234
     volumes:
       - ./volumes/mysql/data:/var/lib/mysql
+      - ./volumes/mysql/my.cnf:/etc/mysql/conf.d/my.cnf
     ports:
       - "33061:3306"
     healthcheck:
