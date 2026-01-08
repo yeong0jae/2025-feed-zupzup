@@ -45,4 +45,21 @@ public class InfrastructureException extends CustomGlobalException {
             super(errorCode, errorCode.getMessage());
         }
     }
+
+    public static final class PdfExportException extends InfrastructureException {
+
+        private static final ErrorCode errorCode = ErrorCode.PDF_EXPORT_FAIL;
+
+        public PdfExportException(final String message, final Throwable throwable) {
+            super(errorCode, message, throwable);
+        }
+
+        public PdfExportException(final String message) {
+            super(errorCode, message);
+        }
+
+        public PdfExportException() {
+            super(errorCode, errorCode.getMessage());
+        }
+    }
 }

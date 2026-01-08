@@ -2,7 +2,7 @@ package feedzupzup.backend.feedback.application;
 
 import feedzupzup.backend.feedback.domain.Feedback;
 import feedzupzup.backend.feedback.domain.FeedbackDownloadJobStore;
-import feedzupzup.backend.feedback.domain.FeedbackExcelDownloader;
+import feedzupzup.backend.feedback.domain.FeedbackPdfDownloader;
 import feedzupzup.backend.feedback.domain.FeedbackRepository;
 import feedzupzup.backend.feedback.domain.vo.FeedbackDownloadJob;
 import feedzupzup.backend.global.exception.ResourceException.ResourceNotFoundException;
@@ -31,7 +31,7 @@ public class FeedbackFileDownloadService {
     private final FeedbackDownloadJobStore feedbackDownloadJobStore;
     private final OrganizationRepository organizationRepository;
     private final FeedbackRepository feedBackRepository;
-    private final FeedbackExcelDownloader feedbackExcelDownloader;
+    private final FeedbackPdfDownloader feedbackPdfDownloader;
     private final S3UploadService s3UploadService;
 
     @Async
@@ -49,14 +49,14 @@ public class FeedbackFileDownloadService {
 
             final List<Feedback> feedbacks = feedBackRepository.findByOrganization(organization);
 
-            tempFile = Files.createTempFile("feedback_", ".xlsx");
+            tempFile = Files.createTempFile("feedback_", ".pdf");
             try (final FileOutputStream fileOutputStream = new FileOutputStream(tempFile.toFile())) {
-                feedbackExcelDownloader.download(organization, feedbacks, fileOutputStream, jobId);
+                feedbackPdfDownloader.download(organization, feedbacks, fileOutputStream, jobId);
             }
 
             try (final FileInputStream fileInputStream = new FileInputStream(tempFile.toFile())) {
                 final String s3Url = s3UploadService.uploadFileStream(
-                        "xlsx",
+                        "pdf",
                         "feedback_file",
                         jobId,
                         fileInputStream,
@@ -66,7 +66,7 @@ public class FeedbackFileDownloadService {
             }
 
         } catch (Exception e) {
-            log.error("피드백 엑셀 파일 생성 중 오류 발생. jobId={}", jobId, e);
+            log.error("피드백 PDF 파일 생성 중 오류 발생. jobId={}", jobId, e);
             job.fail("파일 생성 중 오류가 발생했습니다: " + e.getMessage());
         } finally {
             deleteTempFile(tempFile);

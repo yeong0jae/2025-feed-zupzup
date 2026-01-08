@@ -54,6 +54,9 @@ dependencies {
     //excel
     implementation 'org.apache.poi:poi-ooxml:5.4.1'
 
+    //PDF 생성
+    implementation 'org.apache.pdfbox:pdfbox:3.0.1'
+
     //db
     runtimeOnly 'com.mysql:mysql-connector-j'
     implementation 'org.flywaydb:flyway-core'

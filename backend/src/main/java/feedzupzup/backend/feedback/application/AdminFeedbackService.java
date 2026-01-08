@@ -213,6 +213,6 @@ public class AdminFeedbackService {
     private String generateDownloadFileName() {
         final LocalDateTime now = LocalDateTime.now();
         final String timestamp = now.format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-        return String.format("feedback_export_%s.xlsx", timestamp);
+        return String.format("feedback_export_%s.pdf", timestamp);
     }
 }
