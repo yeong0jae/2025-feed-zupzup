@@ -42,10 +42,26 @@ public class FeedbackDownloadJob {
         );
     }
 
-    public void updateProgress(final int newProgress) {
-        this.progress = newProgress;
-        this.status = DownloadStatus.PROCESSING;
-        this.updatedAt = LocalDateTime.now();
+    public static FeedbackDownloadJob of(
+            final String jobId,
+            final String organizationUuid,
+            final DownloadStatus status,
+            final int progress,
+            final String downloadUrl,
+            final String errorMessage,
+            final LocalDateTime createdAt,
+            final LocalDateTime updatedAt
+    ) {
+        return new FeedbackDownloadJob(
+                jobId,
+                organizationUuid,
+                status,
+                progress,
+                downloadUrl,
+                errorMessage,
+                createdAt,
+                updatedAt
+        );
     }
 
     public void completeWithUrl(final String downloadUrl) {

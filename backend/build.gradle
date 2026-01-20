@@ -45,14 +45,13 @@ dependencies {
     implementation('software.amazon.awssdk:s3:2.30.16') {
         exclude group: 'software.amazon.awssdk', module: 'apache-client'
     }
+    implementation 'software.amazon.awssdk:dynamodb:2.30.16'
+    implementation 'software.amazon.awssdk:lambda:2.30.16'
     implementation 'software.amazon.awssdk:url-connection-client:2.30.16'
 
     //QR
     implementation 'com.google.zxing:core:3.5.2'
     implementation 'com.google.zxing:javase:3.5.2'
-
-    //excel
-    implementation 'org.apache.poi:poi-ooxml:5.4.1'
 
     //db
     runtimeOnly 'com.mysql:mysql-connector-j'

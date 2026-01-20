@@ -3,6 +3,7 @@ package feedzupzup.backend.feedback.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.*;
 
 import feedzupzup.backend.admin.domain.AdminRepository;
@@ -13,9 +14,16 @@ import feedzupzup.backend.feedback.domain.FeedbackRepository;
 import feedzupzup.backend.feedback.domain.vo.FeedbackDownloadJob;
 import feedzupzup.backend.feedback.dto.request.UpdateFeedbackCommentRequest;
 import feedzupzup.backend.feedback.exception.FeedbackException.DownloadJobNotCompletedException;
+import feedzupzup.backend.feedback.infrastructure.excel.FeedbackExcelLambdaRequest;
+import feedzupzup.backend.feedback.infrastructure.excel.FeedbackExcelLambdaService;
 import feedzupzup.backend.global.exception.ResourceException.ResourceNotFoundException;
+import feedzupzup.backend.organization.domain.Organization;
+import feedzupzup.backend.organization.domain.vo.CheeringCount;
+import feedzupzup.backend.organization.domain.vo.Name;
 import feedzupzup.backend.organization.domain.OrganizationRepository;
 import feedzupzup.backend.organization.domain.OrganizationStatisticRepository;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -51,7 +59,7 @@ class AdminFeedbackServiceUnitTest {
     private FeedbackDownloadJobStore feedbackDownloadJobStore;
 
     @Mock
-    private FeedbackFileDownloadService feedbackFileDownloadService;
+    private FeedbackExcelLambdaService feedbackExcelLambdaService;
 
     @Nested
     @DisplayName("피드백 삭제 예외 테스트")
@@ -151,8 +159,14 @@ class AdminFeedbackServiceUnitTest {
         void createDownloadJob_success() {
             // given
             UUID organizationUuid = UUID.randomUUID();
+            Organization organization = Organization.builder()
+                    .uuid(organizationUuid)
+                    .name(new Name("테스트단체"))
+                    .cheeringCount(new CheeringCount(0))
+                    .build();
 
-            given(organizationRepository.existsOrganizationByUuid(organizationUuid)).willReturn(true);
+            given(organizationRepository.findByUuid(organizationUuid)).willReturn(Optional.of(organization));
+            given(feedbackRepository.findByOrganization(organization)).willReturn(List.of());
 
             // when
             String jobId = adminFeedbackService.createDownloadJob(organizationUuid);
@@ -160,6 +174,7 @@ class AdminFeedbackServiceUnitTest {
             // then
             assertThat(jobId).isNotNull();
             assertThat(UUID.fromString(jobId)).isNotNull(); // UUID 형식 검증
+            verify(feedbackExcelLambdaService).invokeFeedbackExcelGeneration(any(FeedbackExcelLambdaRequest.class));
         }
 
         @Test
@@ -168,7 +183,7 @@ class AdminFeedbackServiceUnitTest {
             // given
             UUID nonExistentUuid = UUID.randomUUID();
 
-            given(organizationRepository.existsOrganizationByUuid(nonExistentUuid)).willReturn(false);
+            given(organizationRepository.findByUuid(nonExistentUuid)).willReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> adminFeedbackService.createDownloadJob(nonExistentUuid))
@@ -228,9 +243,17 @@ class AdminFeedbackServiceUnitTest {
             // given
             String organizationUuid = UUID.randomUUID().toString();
 
-            // FeedbackDownloadJob를 PENDING 상태로 생성 후 PROCESSING으로 변경
-            FeedbackDownloadJob incompletedJob = FeedbackDownloadJob.create(organizationUuid);
-            incompletedJob.updateProgress(50);  // PROCESSING 상태로 전환
+            LocalDateTime now = LocalDateTime.now();
+            FeedbackDownloadJob incompletedJob = FeedbackDownloadJob.of(
+                    UUID.randomUUID().toString(),
+                    organizationUuid,
+                    FeedbackDownloadJob.DownloadStatus.PROCESSING,
+                    50,
+                    null,
+                    null,
+                    now,
+                    now
+            );
 
             given(feedbackDownloadJobStore.getById(incompletedJob.getJobId())).willReturn(incompletedJob);
 

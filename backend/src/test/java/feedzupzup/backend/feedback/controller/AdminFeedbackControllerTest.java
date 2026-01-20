@@ -410,8 +410,17 @@ class AdminFeedbackControllerTest {
         String jobId = UUID.randomUUID().toString();
 
         // Job 생성 및 진행률 업데이트
-        FeedbackDownloadJob job = FeedbackDownloadJob.create(organizationUuid.toString());
-        job.updateProgress(50);
+        LocalDateTime now = LocalDateTime.now();
+        FeedbackDownloadJob job = FeedbackDownloadJob.of(
+                jobId,
+                organizationUuid.toString(),
+                FeedbackDownloadJob.DownloadStatus.PROCESSING,
+                50,
+                null,
+                null,
+                now,
+                now
+        );
 
         // Mocking: anyString() 대신 명확한 jobId 매칭 권장
         given(adminFeedbackService.getDownloadJobStatus(eq(jobId)))

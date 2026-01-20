@@ -29,8 +29,12 @@ import feedzupzup.backend.feedback.dto.response.FeedbackItem;
 import feedzupzup.backend.feedback.dto.response.UpdateFeedbackCommentResponse;
 import feedzupzup.backend.feedback.exception.FeedbackException.DownloadJobNotCompletedException;
 import feedzupzup.backend.feedback.exception.FeedbackException.DownloadUrlNotGeneratedException;
+import feedzupzup.backend.feedback.infrastructure.excel.FeedbackData;
+import feedzupzup.backend.feedback.infrastructure.excel.FeedbackExcelLambdaRequest;
+import feedzupzup.backend.feedback.infrastructure.excel.FeedbackExcelLambdaService;
 import feedzupzup.backend.global.exception.ResourceException.ResourceNotFoundException;
 import feedzupzup.backend.global.log.BusinessActionLog;
+import feedzupzup.backend.organization.domain.Organization;
 import feedzupzup.backend.organization.domain.OrganizationRepository;
 import feedzupzup.backend.organization.domain.OrganizationStatisticRepository;
 import feedzupzup.backend.s3.service.S3PresignedDownloadService;
@@ -60,7 +64,7 @@ public class AdminFeedbackService {
     private final FeedbackEmbeddingClusterRepository feedbackEmbeddingClusterRepository;
     private final S3PresignedDownloadService s3PresignedDownloadService;
     private final FeedbackDownloadJobStore feedbackDownloadJobStore;
-    private final FeedbackFileDownloadService feedbackFileDownloadService;
+    private final FeedbackExcelLambdaService feedbackExcelLambdaService;
 
     @Transactional
     @BusinessActionLog
@@ -172,14 +176,26 @@ public class AdminFeedbackService {
     }
 
     public String createDownloadJob(final UUID organizationUuid) {
-        if (!organizationRepository.existsOrganizationByUuid(organizationUuid)) {
-            throw new ResourceNotFoundException("해당 ID(id = " + organizationUuid + ")인 단체를 찾을 수 없습니다.");
-        }
+        final Organization organization = organizationRepository.findByUuid(organizationUuid)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "해당 ID(id = " + organizationUuid + ")인 단체를 찾을 수 없습니다."
+                ));
 
         final FeedbackDownloadJob job = FeedbackDownloadJob.create(organizationUuid.toString());
         feedbackDownloadJobStore.save(job);
 
-        feedbackFileDownloadService.createAndUploadFileAsync(job.getJobId(), organizationUuid);
+        final List<Feedback> feedbacks = feedBackRepository.findByOrganization(organization);
+        final List<FeedbackData> feedbackDataList = feedbacks.stream()
+                .map(FeedbackData::from)
+                .toList();
+
+        final FeedbackExcelLambdaRequest lambdaRequest = new FeedbackExcelLambdaRequest(
+                job.getJobId(),
+                organizationUuid.toString(),
+                feedbackDataList
+        );
+
+        feedbackExcelLambdaService.invokeFeedbackExcelGeneration(lambdaRequest);
 
         return job.getJobId();
     }
