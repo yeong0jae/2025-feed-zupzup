@@ -102,8 +102,7 @@ public class FeedbackPoiExcelDownloader implements FeedbackExcelDownloader {
         final FeedbackImageProducer producer = new FeedbackImageProducer(s3DownloadService, queue, executor);
         final CompletableFuture<Void> produceJob = producer.produceImages(feedbacks);
 
-        final FeedbackRowWriter consumer = new FeedbackRowWriter(sheet, queue, workbook, feedbackDownloadJobStore,
-                jobId);
+        final FeedbackRowWriter consumer = new FeedbackRowWriter(sheet, queue, workbook, feedbackDownloadJobStore, jobId);
         consumer.consumeToExcel(feedbacks.size());
 
         try {

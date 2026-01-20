@@ -58,8 +58,7 @@ public class FeedbackImageProducer {
         }
 
         try {
-            final String imageUrl = feedback.getImageUrl().getValue();
-            final byte[] imageData = s3DownloadService.downloadFile(imageUrl);
+            final byte[] imageData = s3DownloadService.downloadFile(feedback.getImageUrl().getValue());
             return ImageDownloadResult.success(imageData);
         } catch (Exception e) {
             log.error("이미지 다운로드 실패: {}", feedback.getImageUrl(), e);
