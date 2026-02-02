@@ -50,7 +50,7 @@ public class FeedbackPoiExcelDownloader implements FeedbackExcelDownloader {
         log.info("피드백 엑셀 다운로드 시작: 조직={}, 피드백 개수={}", organization.getName().getValue(), feedbacks.size());
 
         final int windowSize = 10;
-        final ExecutorService executor = Executors.newFixedThreadPool(PRODUCER_THREAD + DOWNLOAD_THREADS);
+        final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
         try (final SXSSFWorkbook workbook = new SXSSFWorkbook(windowSize)) {
             final String sheetName = organization.getName().getValue();
