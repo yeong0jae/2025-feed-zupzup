@@ -3,10 +3,14 @@ package feedzupzup.backend.s3.service;
 import feedzupzup.backend.s3.config.S3Properties;
 import feedzupzup.backend.s3.exception.S3DownloadException;
 import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import software.amazon.awssdk.core.BytesWrapper;
 import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.core.async.AsyncResponseTransformer;
 import software.amazon.awssdk.core.exception.SdkClientException;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
@@ -17,6 +21,7 @@ import software.amazon.awssdk.services.s3.model.S3Exception;
 public class S3DownloadService {
 
     private final S3Client s3Client;
+    private final S3AsyncClient s3AsyncClient;
     private final S3Properties s3Properties;
 
     public byte[] downloadFile(final String imageUrl) {
@@ -35,6 +40,21 @@ public class S3DownloadService {
         }
 
         return imageUrl.substring(urlPrefix.length());
+    }
+
+    public CompletableFuture<byte[]> downloadFileAsync(final String imageUrl) {
+        final String objectKey = extractObjectKeyFromUrl(imageUrl);
+        return getObjectAsync(objectKey);
+    }
+
+    private CompletableFuture<byte[]> getObjectAsync(final String objectKey) {
+        final GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                .bucket(s3Properties.bucketName())
+                .key(objectKey)
+                .build();
+
+        return s3AsyncClient.getObject(getObjectRequest, AsyncResponseTransformer.toBytes())
+                .thenApply(BytesWrapper::asByteArray);
     }
 
     private byte[] getObject(final String objectKey) {

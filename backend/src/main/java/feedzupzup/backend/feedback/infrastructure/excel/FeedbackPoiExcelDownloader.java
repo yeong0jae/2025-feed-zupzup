@@ -13,9 +13,6 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.Cell;
@@ -34,8 +31,6 @@ import org.springframework.stereotype.Component;
 public class FeedbackPoiExcelDownloader implements FeedbackExcelDownloader {
 
     private static final int QUEUE_CAPACITY = 15;
-    private static final int PRODUCER_THREAD = 1;
-    private static final int DOWNLOAD_THREADS = 10;
 
     private final S3DownloadService s3DownloadService;
     private final FeedbackDownloadJobStore feedbackDownloadJobStore;
@@ -50,14 +45,13 @@ public class FeedbackPoiExcelDownloader implements FeedbackExcelDownloader {
         log.info("피드백 엑셀 다운로드 시작: 조직={}, 피드백 개수={}", organization.getName().getValue(), feedbacks.size());
 
         final int windowSize = 10;
-        final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
         try (final SXSSFWorkbook workbook = new SXSSFWorkbook(windowSize)) {
             final String sheetName = organization.getName().getValue();
             final Sheet sheet = workbook.createSheet(sheetName);
 
             createHeaderRow(sheet);
-            createDataRows(sheet, workbook, feedbacks, executor, jobId);
+            createDataRows(sheet, workbook, feedbacks, jobId);
 
             workbook.write(outputStream);
             outputStream.flush();
@@ -65,8 +59,6 @@ public class FeedbackPoiExcelDownloader implements FeedbackExcelDownloader {
             log.info("피드백 엑셀 다운로드 완료");
         } catch (IOException e) {
             throw new PoiExcelExportException("엑셀 파일 생성 중 오류가 발생했습니다.");
-        } finally {
-            shutdownExecutor(executor);
         }
     }
 
@@ -94,12 +86,11 @@ public class FeedbackPoiExcelDownloader implements FeedbackExcelDownloader {
             final Sheet sheet,
             final SXSSFWorkbook workbook,
             final List<Feedback> feedbacks,
-            final ExecutorService executor,
             final String jobId
     ) {
         final BlockingQueue<FeedbackWithImage> queue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
 
-        final FeedbackImageProducer producer = new FeedbackImageProducer(s3DownloadService, queue, executor);
+        final FeedbackImageProducer producer = new FeedbackImageProducer(s3DownloadService, queue);
         final CompletableFuture<Void> produceJob = producer.produceImages(feedbacks);
 
         final FeedbackRowWriter consumer = new FeedbackRowWriter(sheet, queue, workbook, feedbackDownloadJobStore, jobId);
@@ -110,21 +101,6 @@ public class FeedbackPoiExcelDownloader implements FeedbackExcelDownloader {
         } catch (CompletionException e) {
             log.error("이미지 다운로드 작업 중 오류 발생", e);
             throw new PoiExcelExportException("이미지 다운로드 중 오류가 발생했습니다.", e);
-        }
-    }
-
-    private void shutdownExecutor(final ExecutorService executor) {
-        try {
-            executor.shutdown();
-            if (!executor.awaitTermination(30, TimeUnit.SECONDS)) {
-                executor.shutdownNow();
-                if (!executor.awaitTermination(10, TimeUnit.SECONDS)) {
-                    log.error("Executor 강제 종료 실패");
-                }
-            }
-        } catch (InterruptedException e) {
-            executor.shutdownNow();
-            Thread.currentThread().interrupt();
         }
     }
 }
