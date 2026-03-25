@@ -7,7 +7,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Semaphore;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -15,12 +15,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class FeedbackImageProducer {
 
-    private static final int MAX_CONCURRENT_DOWNLOADS = 50;
-
     private final S3DownloadService s3DownloadService;
     private final BlockingQueue<FeedbackWithImage> queue;
     private final ExecutorService executor;
-    private final Semaphore semaphore = new Semaphore(MAX_CONCURRENT_DOWNLOADS);
 
     public CompletableFuture<Void> produceImages(final List<Feedback> feedbacks) {
         return CompletableFuture.runAsync(() -> {
@@ -62,19 +59,11 @@ public class FeedbackImageProducer {
         }
 
         try {
-            semaphore.acquire();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return ImageDownloadResult.failed();
-        }
-        try {
             final byte[] imageData = s3DownloadService.downloadFile(feedback.getImageUrl().getValue());
             return ImageDownloadResult.success(imageData);
         } catch (Exception e) {
             log.error("이미지 다운로드 실패: {}", feedback.getImageUrl(), e);
             return ImageDownloadResult.failed();
-        } finally {
-            semaphore.release();
         }
     }
 
