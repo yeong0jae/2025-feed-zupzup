@@ -34,8 +34,6 @@ import org.springframework.stereotype.Component;
 public class FeedbackPoiExcelDownloader implements FeedbackExcelDownloader {
 
     private static final int QUEUE_CAPACITY = 15;
-    private static final int PRODUCER_THREAD = 1;
-    private static final int DOWNLOAD_THREADS = 10;
 
     private final S3DownloadService s3DownloadService;
     private final FeedbackDownloadJobStore feedbackDownloadJobStore;
