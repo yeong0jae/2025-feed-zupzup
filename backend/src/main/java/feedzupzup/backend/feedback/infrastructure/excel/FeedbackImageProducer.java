@@ -4,10 +4,9 @@ import feedzupzup.backend.feedback.domain.Feedback;
 import feedzupzup.backend.s3.service.S3DownloadService;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
-
+import java.util.concurrent.Executors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -17,31 +16,17 @@ public class FeedbackImageProducer {
 
     private final S3DownloadService s3DownloadService;
     private final BlockingQueue<FeedbackWithImage> queue;
-    private final ExecutorService executor;
 
-    public CompletableFuture<Void> produceImages(final List<Feedback> feedbacks) {
-        return CompletableFuture.runAsync(() -> {
-            try {
-                final List<CompletableFuture<Void>> downloadJobs = feedbacks.stream()
-                        .map(this::downloadJob)
-                        .toList();
-
-                CompletableFuture.allOf(downloadJobs.toArray(CompletableFuture[]::new)).join();
-            } finally {
-                notifyFinished();
-            }
-        }, executor);
-    }
-
-    private CompletableFuture<Void> downloadJob(final Feedback feedback) {
-        return CompletableFuture
-                .supplyAsync(() -> downloadImage(feedback), executor)
-                .thenAccept(imageResult -> enqueue(feedback, imageResult))
-                .exceptionally(ex -> {
-                    log.error("이미지 다운로드 실패", ex);
-                    enqueue(feedback, ImageDownloadResult.failed());
-                    return null;
+    public void produceImages(final List<Feedback> feedbacks) {
+        try (final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            for (final Feedback feedback : feedbacks) {
+                executor.submit(() -> {
+                    final ImageDownloadResult result = downloadImage(feedback);
+                    enqueue(feedback, result);
                 });
+            }
+        }
+        notifyFinished();
     }
 
     private void enqueue(final Feedback feedback, final ImageDownloadResult imageResult) {
