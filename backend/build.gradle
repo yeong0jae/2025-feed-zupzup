@@ -48,6 +48,9 @@ dependencies {
     implementation 'software.amazon.awssdk:url-connection-client:2.30.16'
     implementation 'software.amazon.awssdk:netty-nio-client:2.30.16'
 
+    //reactor
+    implementation 'io.projectreactor:reactor-core'
+
     //QR
     implementation 'com.google.zxing:core:3.5.2'
     implementation 'com.google.zxing:javase:3.5.2'

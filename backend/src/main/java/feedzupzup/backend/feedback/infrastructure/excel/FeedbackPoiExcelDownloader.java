@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.Cell;
@@ -91,16 +90,10 @@ public class FeedbackPoiExcelDownloader implements FeedbackExcelDownloader {
         final BlockingQueue<FeedbackWithImage> queue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
 
         final FeedbackImageProducer producer = new FeedbackImageProducer(s3DownloadService, queue);
-        final CompletableFuture<Void> produceJob = producer.produceImages(feedbacks);
 
         final FeedbackRowWriter consumer = new FeedbackRowWriter(sheet, queue, workbook, feedbackDownloadJobStore, jobId);
-        consumer.consumeToExcel(feedbacks.size());
 
-        try {
-            produceJob.join();
-        } catch (CompletionException e) {
-            log.error("이미지 다운로드 작업 중 오류 발생", e);
-            throw new PoiExcelExportException("이미지 다운로드 중 오류가 발생했습니다.", e);
-        }
+        CompletableFuture.runAsync(() -> producer.produceImages(feedbacks));
+        consumer.consumeToExcel(feedbacks.size());
     }
 }

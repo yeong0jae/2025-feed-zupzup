@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Mono;
 import software.amazon.awssdk.core.BytesWrapper;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.async.AsyncResponseTransformer;
@@ -40,6 +41,11 @@ public class S3DownloadService {
         }
 
         return imageUrl.substring(urlPrefix.length());
+    }
+
+    public Mono<byte[]> downloadFileReactive(final String imageUrl) {
+        final String objectKey = extractObjectKeyFromUrl(imageUrl);
+        return Mono.fromFuture(() -> getObjectAsync(objectKey));
     }
 
     public CompletableFuture<byte[]> downloadFileAsync(final String imageUrl) {

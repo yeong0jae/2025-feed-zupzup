@@ -4,40 +4,47 @@ import feedzupzup.backend.feedback.domain.Feedback;
 import feedzupzup.backend.s3.service.S3DownloadService;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 @RequiredArgsConstructor
 @Slf4j
 public class FeedbackImageProducer {
 
+    private static final int CONCURRENCY = 15;
+
     private final S3DownloadService s3DownloadService;
     private final BlockingQueue<FeedbackWithImage> queue;
 
-    public CompletableFuture<Void> produceImages(final List<Feedback> feedbacks) {
-        final List<CompletableFuture<Void>> downloadJobs = feedbacks.stream()
-                .map(this::downloadJob)
-                .toList();
-
-        return CompletableFuture.allOf(downloadJobs.toArray(CompletableFuture[]::new))
-                .whenComplete((result, ex) -> notifyFinished());
+    public void produceImages(final List<Feedback> feedbacks) {
+        try {
+            Flux.fromIterable(feedbacks)
+                    .flatMap(this::downloadJob, CONCURRENCY)
+                    .doFinally(signal -> notifyFinished())
+                    .blockLast();
+        } catch (Exception e) {
+            log.error("이미지 다운로드 작업 중 오류 발생", e);
+            throw e;
+        }
     }
 
-    private CompletableFuture<Void> downloadJob(final Feedback feedback) {
+    private Mono<Void> downloadJob(final Feedback feedback) {
         if (feedback.getImageUrl() == null) {
             enqueue(feedback, ImageDownloadResult.noImage());
-            return CompletableFuture.completedFuture(null);
+            return Mono.empty();
         }
 
-        return s3DownloadService.downloadFileAsync(feedback.getImageUrl().getValue())
-                .thenApply(ImageDownloadResult::success)
-                .exceptionally(ex -> {
+        return s3DownloadService.downloadFileReactive(feedback.getImageUrl().getValue())
+                .map(ImageDownloadResult::success)
+                .onErrorResume(ex -> {
                     log.error("이미지 다운로드 실패: {}", feedback.getImageUrl(), ex);
-                    return ImageDownloadResult.failed();
+                    return Mono.just(ImageDownloadResult.failed());
                 })
-                .thenAccept(imageResult -> enqueue(feedback, imageResult));
+                .doOnNext(imageResult -> enqueue(feedback, imageResult))
+                .then();
     }
 
     private void enqueue(final Feedback feedback, final ImageDownloadResult imageResult) {
